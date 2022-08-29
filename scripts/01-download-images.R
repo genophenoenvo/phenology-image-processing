@@ -21,7 +21,7 @@ if(!dir.exists('data_raw/NEON.D01.HARV.DP1.00042')){
 rawdir <- 'data_raw/NEON.D01.HARV.DP1.00042'
 
 download_midday_images(site = 'NEON.D01.HARV.DP1.00042', # which site
-                       y = 2021, # which year(s)
+                       y = 2017:2021, # which year(s)
                        months = 1:12, # which month(s)
                        days = 1:31, # which days on month(s)
                        download_dir = rawdir) # where files should download to
