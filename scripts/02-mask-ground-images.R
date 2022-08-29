@@ -5,29 +5,18 @@ library(countcolors)
 library(dplyr)
 # library(imager)
 library(ggplot2)
+library(phenocamapi)
 
 folder <- "data_raw/NEON.D01.HARV.DP1.00042/"
 pics <- list.files(folder)
-
-# Testing imagr
-# imgFeb <- imager::load.image("data_raw/NEON.D01.HARV.DP1.00042/NEON.D01.HARV.DP1.00042_2021_02_01_120005.jpg")
-# dim(imgFeb)
-# class(imgFeb)
-# str(imgFeb)
-# hsv_imgFeb <- imager::RGBtoHSV(imgFeb)
-# dim(hsv_imgFeb)
-# str(hsv_imgFeb)
-# hist(hsv_imgFeb[,,,1]) # Hue
-# hist(hsv_imgFeb[,,,2]) # Saturation
-# hist(hsv_imgFeb[,,,3]) # Value
-# length(hsv_imgFeb[1,1,,1])
 
 # Test countcolors (https://cran.r-project.org/web/packages/countcolors/vignettes/Introduction.html)
 
 # Loop through first 100 dates and determine percentage of white/snow
 
-out <- matrix(NA, nrow = length(first100), ncol = 5)
+
 first100 <- paste0(folder, pics[1:100])
+out <- matrix(NA, nrow = length(first100), ncol = 5)
 for(i in 1:length(first100)){
   kmeans.clusters <- colordistance::getKMeanColors(first100[i], 
                                                    n = 2, 
@@ -51,7 +40,7 @@ str(out_df)
 ggplot(out_df) +
   geom_point(aes(x = date, y = Pct))
 
-quantile(out_df$Pct, 0.5)
+quantile(out_df$Pct, 0.75)
 
 # Pick 90th percentile
 snow_image <- jpeg::readJPEG(paste0(folder, out_df$image[90]))
@@ -84,10 +73,17 @@ anyT <- function(x){
 mask <- apply(mask_3d, 1:2, FUN = anyT)
 str(mask)
 
-# save mask?
-
+# save mask in data_processed
+if(!dir.exists('data_processed/NEON.D01.HARV.DP1.00042')){
+  dir.create('data_processed')
+  dir.create('data_processed/NEON.D01.HARV.DP1.00042')
+}
+saveRDS(mask, file = paste0("data_processed/NEON.D01.HARV.DP1.00042/", 
+                            "2021_snow_mask.rds"))
 
 #### For loop through 2021 images ####
+
+mask <- readRDS("data_processed/NEON.D01.HARV.DP1.00042/2021_snow_mask.rds")
 
 # Functions
 # Create masking function for apply
@@ -142,4 +138,39 @@ ggplot(image_gcc) +
   geom_point(aes(x = date, y = rcc, col = "rcc")) +
   scale_color_manual(values = c("forestgreen", "orchid"))
 
+# Save image_gcc
+saveRDS(image_gcc, 
+        file = "data_processed/NEON.D01.HARV.DP1.00042/2021_understory_gcc.rds")
 
+
+#### Get phenocam gcc timeseries for canopy ROI ####
+phenos <- get_phenos() %>%
+  filter(grepl("HARV", site))
+
+# NEON.D01.HARV.DP1.00033 is canopy camera
+
+rois <- get_rois () %>%
+  filter(grepl("HARV", site))
+
+# NEON.D01.HARV.DP1.00033_DB_1000 is the deciduous broadleaf roi
+
+harv_db <- get_pheno_ts(site = 'NEON.D01.HARV.DP1.00033',
+                        vegType = 'DB',
+                        roiID = 1000,
+                        type = '1day')
+
+harv_db_2021 <- harv_db %>%
+  filter(year == 2021) %>%
+  mutate(date = as.Date(date))
+
+ggplot() +
+  geom_point(data = image_gcc,
+             aes(x = date, y = gcc, col = "gcc_understory")) +
+  geom_point(data = harv_db_2021, 
+             aes(x = date, y = gcc_90, col = "gcc_DB")) +
+  geom_point(data = image_gcc,
+             aes(x = date, y = rcc, col = "rcc_understory")) +
+  geom_point(data = harv_db_2021, 
+             aes(x = date, y = rcc_90, col = "rcc_DB"))
+
+ggplot() 
