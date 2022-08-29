@@ -3,5 +3,6 @@
 .RData
 .Ruserdata
 
-# Suppress images
+# Suppress data folders
 data_raw/
+data_processed/
