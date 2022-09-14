@@ -1,0 +1,5 @@
+#CFLAGS=-I/opt/homebrew/include
+#LDFLAGS+=-L/opt/homebrew/opt/jpeg/lib
+LDFLAGS="-L/usr/local/opt/jpeg/lib"
+CPPFLAGS="-I/usr/local/opt/jpeg/include"
+CFLAGS="-I/usr/local/opt/jpeg/include"
