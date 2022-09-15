@@ -1,44 +1,62 @@
-# Create snow mask from Feb/Mar and calculate gcc/rcc for all images
-# library(opencv)
-# library(jpeg)
-library(countcolors)
+# For each year
+# Categorize and compare kmeans n=2 of first 100 days
+# Determine threshold for snow mask
+# Apply mask to calculate gcc/rcc for all images
+
+
+library(countcolors) # https://cran.r-project.org/web/packages/countcolors/vignettes/Introduction.html
 library(dplyr)
-# library(imager)
 library(ggplot2)
 library(phenocamapi)
 
 folder <- "data_raw/NEON.D01.HARV.DP1.00042/"
 pics <- list.files(folder)
+pics_df <- data.frame(filename = pics) %>%
+  mutate(date = as.Date(stringr::str_extract(filename, "[0-9]{4}\\_[0-9]{2}\\_[0-9]{2}"),
+                        format = "%Y_%m_%d"),
+         month = lubridate::month(date),
+         year = lubridate::year(date)) 
+count(pics_df, year)
 
-# Test countcolors (https://cran.r-project.org/web/packages/countcolors/vignettes/Introduction.html)
-
+# For each year  
 # Loop through first 100 dates and determine percentage of white/snow
+years <- unique(pics_df$year)
+out_list <- list()
+for(j in 1:length(years)){
+  ind <- which(pics_df$year == years[j] & pics_df$month %in% c(1, 2, 3))
+  initial <- paste0(folder, pics_df$filename[ind])
+  out <- matrix(NA, nrow = length(initial), ncol = 5)
+  for(i in 1:length(initial)){
+    kmeans.clusters <- colordistance::getKMeanColors(initial[i], 
+                                                     n = 2, 
+                                                     plotting = FALSE)
+    color_mat <- colordistance::extractClusters(kmeans.clusters)
+    color_mat$mean <- rowMeans(color_mat[,1:3])
+    out[i,] <- c(unlist(color_mat[which.max(color_mat$mean),]))
+  }
+  
+  # Create output dataframe
+  out_df <- data.frame(out) %>%
+    setNames(colnames(color_mat)) %>%
+    mutate(image = initial, .before = R,
+           date = as.Date(stringr::str_extract(image, "[0-9]{4}\\_[0-9]{2}\\_[0-9]{2}"),
+                          format = "%Y_%m_%d"))
+  
+  # Store as list element
+  out_list[[j]] <- out_df
 
-
-first100 <- paste0(folder, pics[1:100])
-out <- matrix(NA, nrow = length(first100), ncol = 5)
-for(i in 1:length(first100)){
-  kmeans.clusters <- colordistance::getKMeanColors(first100[i], 
-                                                   n = 2, 
-                                                   plotting = FALSE)
-  color_mat <- colordistance::extractClusters(kmeans.clusters)
-  color_mat$mean <- rowMeans(color_mat[,1:3])
-  out[i,] <- c(unlist(color_mat[which.max(color_mat$mean),]))
 }
-
-# Create output dataframe
-out_df <- data.frame(out) %>%
-  setNames(colnames(color_mat)) %>%
-  mutate(image = pics[1:100], .before = R,
-         date = as.Date(stringr::str_extract(image, "[0-9]{4}\\_[0-9]{2}\\_[0-9]{2}"),
-                        format = "%Y_%m_%d")) %>%
-  arrange(Pct)
-str(out_df)
+names(out_list) <- years
+str(out_list)
 
 # Plot whiteness percentage
 
-ggplot(out_df) +
-  geom_point(aes(x = date, y = Pct))
+out_combined <- do.call(rbind.data.frame, out_list) %>%
+  mutate(year = lubridate::year(date))
+
+ggplot(out_combined) +
+  geom_point(aes(x = date, y = Pct)) +
+  facet_wrap(~year, scales = "free_x")
 
 quantile(out_df$Pct, 0.75)
 
