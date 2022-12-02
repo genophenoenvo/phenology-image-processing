@@ -13,7 +13,10 @@ phenos <- get_phenos() %>%
 
 # NEON.D01.HARV.DP1.00033 is canopy camera
 
-rois <- get_rois () %>%
+#rois <- get_rois () %>%
+#  filter(grepl("HARV", site))
+
+rois <- data.table::fread('data/rois.csv') %>%
   filter(grepl("HARV", site))
 
 # NEON.D01.HARV.DP1.00033_DB_1000 is the deciduous broadleaf roi
